@@ -1,7 +1,7 @@
 # pipe
 data processing pipe with golang
 
-This is a service to process data hand by hand in backgroud using golang goroutine. This pipes can be organized a tree system to process source data or processed data from parent pipe.
+This is a service to process data hand by hand in backgroud using golang goroutine. This pipes can be organized like a tree system to process source data or processed data from parent pipe.
 
 ### Example
 ```go
