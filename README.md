@@ -28,3 +28,6 @@ func pipeHandFn(pipeData *p.PipeData)  {
     }
 }
 ```
+
+### The data Flow will like this
+<img src="https://gw.alipayobjects.com/os/q/cms/images/jogzdyrw/34e81543-e4f5-4994-ac51-9d40d8e6dcb8_w593_h689.png" width=590>
