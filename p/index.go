@@ -5,8 +5,12 @@ import (
 
 var pipeContainer *pipe;
 
-const PIPE_NODE_STATUS_OFFLINE  = -1
-const default_pipe_sema_chan_len  = 50
+const (
+	PIPE_NODE_STATUS_OFFLINE  = -1
+	PIPE_NODE_STATUS_STOPPED  = -1
+	PIPE_NODE_STATUS_CONTINUE  = 1
+	default_pipe_sema_chan_len  = 50
+)
 
 type Pipes interface {
 	StartReceiveData(startNode string, data interface{})
@@ -15,6 +19,7 @@ type Pipes interface {
 }
 
 type PipeData struct {
+	Status int8
 	nextNodes map[string]int8
 	SourceData interface{}
 	Data interface{}
@@ -36,16 +41,23 @@ func (p *pipe) StartReceiveData(startNode string, data interface{})  {
 		SourceData: data,
 		Data: data,
 	}
+	p.runPreAction(startNode, &datas)
 	go p.runNode(startNode, datas)
 	go func() {
 		for {
 			select {
 			case input := <- p.pipeDatas:
+			//当上一个noode通过data标记停止后，后面的node不再处理数据
+				if PIPE_NODE_STATUS_STOPPED == input.Status {
+					return
+				}
+			//当前node如果下线了也不再处理数据
 				for nodeName, status := range input.nextNodes {
-					if status == PIPE_NODE_STATUS_OFFLINE {
+					if PIPE_NODE_STATUS_OFFLINE == status {
 						continue
 					}
 					p.sema.P()
+					p.runPreAction(startNode, &input)
 					go p.runNode(nodeName, input)
 				}
 			}
@@ -80,6 +92,10 @@ func (p *pipe) SetNode(nodes... *PipeNode) {
 	}
 }
 
+func (p *pipe) runPreAction(nodeName string, datas *PipeData)  {
+	p.nodes[nodeName].doDataProcessingBeforeRoutine(datas) //data action
+}
+
 func (p *pipe) runNode(nodeName string, datas PipeData)  {
 	p.nodes[nodeName].doDataProcessing(&datas) //data action
 	datas.nextNodes = p.nodes[nodeName].nextNodes
@@ -91,18 +107,25 @@ func (p *pipe) SetSemaphoreLength(len int)  {
 	p.sema = utils.NewSemaphore(len)
 }
 
-
 type PipeNode struct {
 	Name string
 	Status int8
 	PreNode string
-	DataHander func(datas *PipeData)
+	PreHanderBeforeRoutine func(datas *PipeData)
+	DataHander func(datas *PipeData) (status int8)
 	nextNodes map[string]int8
 }
 
 func (node *PipeNode) doDataProcessing(datas *PipeData)  {
 	if node.DataHander != nil {
-		node.DataHander(datas)
+		status := node.DataHander(datas)
+		datas.Status = status
+	}
+}
+
+func (node *PipeNode) doDataProcessingBeforeRoutine(datas *PipeData)  {
+	if node.PreHanderBeforeRoutine != nil {
+		node.PreHanderBeforeRoutine(datas)
 	}
 }
 
@@ -112,16 +135,11 @@ func (node *PipeNode) SetPipeNodeOffLine()  {
 
 func NewPipes() Pipes{
 	semas := default_pipe_sema_chan_len
-	if pipeContainer == nil {
-		nodes := make(map[string]*PipeNode)
-		pipeContainer = &pipe{
-			sema: utils.NewSemaphore(semas),
-			nodes: nodes,
-			pipeDatas:  make(chan PipeData, int(semas)),
-		}
-		return pipeContainer
+	nodes := make(map[string]*PipeNode)
+	pipeContainer = &pipe{
+		sema: utils.NewSemaphore(semas),
+		nodes: nodes,
+		pipeDatas:  make(chan PipeData, int(semas)),
 	}
 	return pipeContainer
 }
-
-
