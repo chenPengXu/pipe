@@ -1,7 +1,4 @@
-package p
-import (
-	"pipe/utils"
-)
+package main
 
 var pipeContainer *pipe;
 
@@ -27,7 +24,7 @@ type PipeData struct {
 
 //pipes
 type pipe struct {
-	sema *utils.Semaphore
+	sema *Semaphore
 	nodes map[string]*PipeNode
 	pipeDatas chan PipeData
 }
@@ -104,7 +101,7 @@ func (p *pipe) runNode(nodeName string, datas PipeData)  {
 }
 
 func (p *pipe) SetSemaphoreLength(len int)  {
-	p.sema = utils.NewSemaphore(len)
+	p.sema = NewSemaphore(len)
 }
 
 type PipeNode struct {
@@ -137,7 +134,7 @@ func NewPipes() Pipes{
 	semas := default_pipe_sema_chan_len
 	nodes := make(map[string]*PipeNode)
 	pipeContainer = &pipe{
-		sema: utils.NewSemaphore(semas),
+		sema: NewSemaphore(semas),
 		nodes: nodes,
 		pipeDatas:  make(chan PipeData, int(semas)),
 	}
