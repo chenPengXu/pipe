@@ -4,25 +4,23 @@ import (
 	"fmt"
 	"time"
 	"sync"
-
-	"pipe/p"
 )
 
 const NUM  = 20
 var waitChan sync.WaitGroup
 
 func main()  {
-	pipeMana := p.NewPipes()
-	pipe1 := p.PipeNode {
+	pipeMana := NewPipes()
+	pipe1 := PipeNode {
 		Name: "pipe1",
 		DataHander: pipeHandFn,
 	}
-	pipe2 := p.PipeNode{
+	pipe2 := PipeNode{
 		Name: "pipe2",
 		PreNode: "pipe1",
 		DataHander: pipeHandFn,
 	}
-	pipe3 := p.PipeNode{
+	pipe3 := PipeNode{
 		Name: "pipe3",
 		PreNode: "pipe2",
 		DataHander: pipeHandFn3,
@@ -44,16 +42,17 @@ func main()  {
 	fmt.Println("Job Finished ..@time:", time.Now().Unix())
 }
 
-func pipeHandFn(pipeData *p.PipeData)  {
+func pipeHandFn(pipeData *PipeData) (status int8)  {
 	data := pipeData.Data
 	switch v := data.(type) {
 	case int:
 		pipeData.Data = v + 1
 		//fmt.Println("After hander the Data:", pipeData)
+		return PIPE_NODE_STATUS_CONTINUE
 	}
 }
 
-func pipeHandFn3(pipeData *p.PipeData)  {
+func pipeHandFn3(pipeData *PipeData) (status int8)  {
 	data := pipeData.Data
 	switch v := data.(type) {
 	case int:
@@ -62,5 +61,6 @@ func pipeHandFn3(pipeData *p.PipeData)  {
 		// if line 32 SetSemaphoreLength(1), you will see the total time will be 2*NUM seconds;
 		//fmt.Println("After Last hander the Data:", pipeData.Data)
 		waitChan.Done()
+		return PIPE_NODE_STATUS_CONTINUE
 	}
 }

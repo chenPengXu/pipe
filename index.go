@@ -11,6 +11,7 @@ const (
 
 type Pipes interface {
 	StartReceiveData(startNode string, data interface{})
+	StartReceiveDataString(startNode string, data string)
 	SetNode(nodes... *PipeNode)
 	SetSemaphoreLength(len int)
 }
@@ -20,6 +21,7 @@ type PipeData struct {
 	nextNodes map[string]int8
 	SourceData interface{}
 	Data interface{}
+	DataString string //简单的形式
 }
 
 //pipes
@@ -29,26 +31,22 @@ type pipe struct {
 	pipeDatas chan PipeData
 }
 
-func (p *pipe) StartReceiveData(startNode string, data interface{})  {
+func (p *pipe) startReceive(startNode string, datas PipeData)  {
 	if p.nodes[startNode] == nil {
 		return
 	}
 	p.sema.P()
-	datas := PipeData{
-		SourceData: data,
-		Data: data,
-	}
 	p.runPreAction(startNode, &datas)
 	go p.runNode(startNode, datas)
 	go func() {
 		for {
 			select {
 			case input := <- p.pipeDatas:
-			//当上一个noode通过data标记停止后，后面的node不再处理数据
+				//当上一个noode通过data标记停止后，后面的node不再处理数据
 				if PIPE_NODE_STATUS_STOPPED == input.Status {
 					return
 				}
-			//当前node如果下线了也不再处理数据
+				//当前node如果下线了也不再处理数据
 				for nodeName, status := range input.nextNodes {
 					if PIPE_NODE_STATUS_OFFLINE == status {
 						continue
@@ -60,6 +58,21 @@ func (p *pipe) StartReceiveData(startNode string, data interface{})  {
 			}
 		}
 	}()
+}
+func (p *pipe) StartReceiveData(startNode string, data interface{})  {
+	datas := PipeData{
+		SourceData: data,
+		Data: data,
+	}
+	p.startReceive(startNode, datas)
+}
+
+func (p *pipe) StartReceiveDataString(startNode string, data string)  {
+	datas := PipeData{
+		SourceData: data,
+		DataString: data,
+	}
+	p.startReceive(startNode, datas)
 }
 
 func (p *pipe) SetNode(nodes... *PipeNode) {
@@ -110,12 +123,17 @@ type PipeNode struct {
 	PreNode string
 	PreHanderBeforeRoutine func(datas *PipeData)
 	DataHander func(datas *PipeData) (status int8)
+	DataStringHander func(datas string) (status int8)
 	nextNodes map[string]int8
 }
 
 func (node *PipeNode) doDataProcessing(datas *PipeData)  {
 	if node.DataHander != nil {
 		status := node.DataHander(datas)
+		datas.Status = status
+	}
+	if node.DataStringHander != nil { //字符串处理模式，只是简单一直传递
+		status := node.DataStringHander(datas.DataString)
 		datas.Status = status
 	}
 }
